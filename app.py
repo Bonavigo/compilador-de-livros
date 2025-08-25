@@ -37,12 +37,28 @@ def extrair_numero(nome):
     numeros = re.findall(r'\d+', nome)
     return int(numeros[0]) if numeros else float('inf')
 
+def limpar_campos():
+    # Diretórios
+    entry_entrada.delete(0, "end")
+    entry_saida.delete(0, "end")
+    
+    # Metadados
+    entry_metadado_titulo.delete(0, "end")
+    entry_metadado_autor.delete(0, "end")
+    entry_metadado_assunto.delete(0, "end")
+    entry_metadado_palavraschave.delete(0, "end")
+
 # Compilar imagens
 def compilar_imagens():
     status_label.configure(text="⏳ Iniciando compilação...")
     app.update()
     diretorio_entrada = entry_entrada.get()
     diretorio_saida = entry_saida.get()
+    
+    if not diretorio_entrada or not diretorio_saida:
+        status_label.configure(text=f"Faltam diretórios.")
+        return
+    
     nome_pdf = 'livro_final.pdf'
     
     status_label.configure(text=f"Colhendo metatados...")
@@ -79,7 +95,7 @@ def compilar_imagens():
         
     if not imagens:
         status_label.configure(text=f"Nenhuma imagem encontrada.")
-        exit()
+        return
     
     status_label.configure(text=f"Criando pdf temporário...")
     app.update()
@@ -110,7 +126,8 @@ def compilar_imagens():
     
     status_label.configure(text=f"✅ PDF criado com sucesso em: {caminho_pdf_final}")
     app.update()
-
+    limpar_campos()
+    
 # Criação dos campos
 
 # Diretório das imagens
@@ -159,12 +176,12 @@ entry_metadado_palavraschave = ctk.CTkEntry(frame_compilador, placeholder_text='
 entry_metadado_palavraschave.pack()
 
 # Status da compilação
-status_label = ctk.CTkLabel(frame_compilador, text="")
+status_label = ctk.CTkLabel(frame_compilador, text="", wraplength=250)
 status_label.pack(pady=10)
 
 # Compilar
 btn_compilar = ctk.CTkButton(frame_compilador, text="Compilar", command=compilar_imagens)
-btn_compilar.pack(pady=10)
+btn_compilar.pack(pady=0)
 
 # Inicia o loop da aplicação
 app.mainloop()
