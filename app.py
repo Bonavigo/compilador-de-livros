@@ -1,6 +1,5 @@
 import customtkinter as ctk
 from tkinter import filedialog
-from tkinter import messagebox
 from PIL import Image
 from PyPDF2 import PdfReader, PdfWriter
 import os
@@ -11,8 +10,17 @@ ctk.set_appearance_mode('dark')
 
 # Criação da janela principal
 app = ctk.CTk()
+
+# Colocar altura e largura, e fazer com que a janela abra centralizada
+largura_janela = 400
+altura_janela = 500
+screen_width = app.winfo_screenwidth()
+screen_height = app.winfo_screenheight()
+pos_x = int((screen_width - largura_janela) / 2)
+pos_y = int((screen_height - altura_janela) / 2)
+
 app.title("Compilador de livros")
-app.geometry('350x500')
+app.geometry(f"{largura_janela}x{altura_janela}+{pos_x}+{pos_y}")
 
 # Criar frame rolável
 frame_compilador = ctk.CTkScrollableFrame(app, width=330, height=480)
@@ -176,11 +184,11 @@ entry_metadado_palavraschave = ctk.CTkEntry(frame_compilador, placeholder_text='
 entry_metadado_palavraschave.pack()
 
 # Status da compilação
-status_label = ctk.CTkLabel(frame_compilador, text="", wraplength=250)
+status_label = ctk.CTkLabel(frame_compilador, text='', wraplength=250)
 status_label.pack(pady=10)
 
 # Compilar
-btn_compilar = ctk.CTkButton(frame_compilador, text="Compilar", command=compilar_imagens)
+btn_compilar = ctk.CTkButton(frame_compilador, text='Compilar', command=compilar_imagens)
 btn_compilar.pack(pady=0)
 
 # Inicia o loop da aplicação
