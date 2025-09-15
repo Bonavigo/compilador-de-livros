@@ -1,3 +1,4 @@
+import os, sys
 import customtkinter as ctk
 from modulos import compilador, redimensionador, renomeador
 
@@ -17,7 +18,14 @@ pos_y = int((screen_height - altura_janela) / 2)
 
 app.title("Compilador de livros")
 app.geometry(f"{largura_janela}x{altura_janela}+{pos_x}+{pos_y}")
-app.iconbitmap("icon.ico")
+
+# Código seguro para o ícone, arrumando o diretório, e evitando que o programa pare se não encontrá-lo
+try:
+    icon_path = os.path.join(getattr(sys, '_MEIPASS', '.'), "assets/icon.ico")
+    if os.path.exists(icon_path):
+        app.iconbitmap(icon_path)
+except:
+    pass
 
 # Criar área das abas
 tabview = ctk.CTkTabview(app, width=580, height=480)
