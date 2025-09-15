@@ -105,3 +105,7 @@ Para compilar, usei o PyInstaller. Os passos foram esses, caso queira compilar p
     ```
 
 O arquivo executável se chamará "Compilador-de-Livros.exe" e estará na pasta build.
+
+![Views Counter](https://views-counter.vercel.app/badge?pageId=github%2Ecom%2FBonavigo%2Fcompilador-de-livtos&leftColor=000000&rightColor=0000ff&type=total&label=Views&style=none)
+
+![Views Counter](https://views-counter.vercel.app/badge?pageId=github%2Ecom%2FBonavigo%2Fcompilador-de-livtos&leftColor=000000&rightColor=ff0000&type=daily&label=Hoje&style=none)
