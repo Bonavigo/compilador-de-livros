@@ -9,18 +9,11 @@ def criar_aba(tabview):
     frame = ctk.CTkScrollableFrame(aba_compilador, width=560, height=460)
     frame.pack(padx=5, pady=5, fill="both", expand=True)
 
-    # --- Funções internas específicas da aba ---
-    def escolher_pasta_entrada():
+    def escolher_pasta(entry_widget):
         pasta = filedialog.askdirectory()
         if pasta:
-            entry_entrada.delete(0, "end")
-            entry_entrada.insert(0, pasta)
-
-    def escolher_pasta_saida():
-        pasta = filedialog.askdirectory()
-        if pasta:
-            entry_saida.delete(0, "end")
-            entry_saida.insert(0, pasta)
+            entry_widget.delete(0, "end")
+            entry_widget.insert(0, pasta)
 
     def extrair_numero(nome):
         numeros = re.findall(r'\d+', nome)
@@ -96,12 +89,12 @@ def criar_aba(tabview):
     ctk.CTkLabel(frame, text="Pasta com as imagens").pack(pady=10)
     entry_entrada = ctk.CTkEntry(frame, placeholder_text="Insira o diretório...", width=250)
     entry_entrada.pack()
-    ctk.CTkButton(frame, text="Escolher Pasta", command=escolher_pasta_entrada).pack(pady=10)
+    ctk.CTkButton(frame, text="Escolher Pasta", command=lambda: escolher_pasta(entry_entrada)).pack(pady=10)
 
     ctk.CTkLabel(frame, text="Pasta de saída").pack(pady=10)
     entry_saida = ctk.CTkEntry(frame, placeholder_text="Insira o diretório...", width=250)
     entry_saida.pack()
-    ctk.CTkButton(frame, text="Escolher Pasta", command=escolher_pasta_saida).pack(pady=10)
+    ctk.CTkButton(frame, text="Escolher Pasta", command=lambda: escolher_pasta(entry_saida)).pack(pady=10)
 
     ctk.CTkLabel(frame, text="Título do livro").pack(pady=10)
     entry_metadado_titulo = ctk.CTkEntry(frame, placeholder_text="Insira o título para os metadados...", width=250)

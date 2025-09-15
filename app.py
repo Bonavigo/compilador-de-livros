@@ -17,6 +17,7 @@ pos_y = int((screen_height - altura_janela) / 2)
 
 app.title("Compilador de livros")
 app.geometry(f"{largura_janela}x{altura_janela}+{pos_x}+{pos_y}")
+app.iconbitmap("icon.ico")
 
 # Criar área das abas
 tabview = ctk.CTkTabview(app, width=580, height=480)

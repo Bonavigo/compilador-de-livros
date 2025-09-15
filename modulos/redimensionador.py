@@ -8,18 +8,17 @@ def criar_aba(tabview):
     frame = ctk.CTkScrollableFrame(aba_redimensionador, width=560, height=460)
     frame.pack(padx=5, pady=5, fill="both", expand=True)
     
-    # --- Funções internas específicas da aba ---
-    def escolher_pasta_entrada():
+    def escolher_pasta(entry_widget):
         pasta = filedialog.askdirectory()
         if pasta:
-            entry_entrada.delete(0, "end")
-            entry_entrada.insert(0, pasta)
-
-    def escolher_pasta_saida():
-        pasta = filedialog.askdirectory()
-        if pasta:
-            entry_saida.delete(0, "end")
-            entry_saida.insert(0, pasta)
+            entry_widget.delete(0, "end")
+            entry_widget.insert(0, pasta)
+    
+    def limpar_campos():
+        entry_entrada.delete(0, "end")
+        entry_saida.delete(0, "end")
+        tamanho.set("50%")
+        qualidade.set("90")
     
     def redimensionar_imagens():
         status_label.configure(text=f"Verificando diretórios...")
@@ -27,13 +26,20 @@ def criar_aba(tabview):
         diretorio_entrada = entry_entrada.get()
         diretorio_saida = entry_saida.get()
         
+        if not diretorio_entrada or not diretorio_saida:
+            status_label.configure(text="Faltam diretórios.")
+            status_label.update_idletasks()
+            return
+        
         os.makedirs(diretorio_saida, exist_ok=True)
         
         status_label.configure(text=f"Configurando tamanhos e a qualidade...")
         status_label.update_idletasks()
         
         tamanho_desejado = tamanho.get()
-        if tamanho_desejado == "50%":
+        if tamanho_desejado == "100%":
+            tamanho_desejado = 1
+        elif tamanho_desejado == "50%":
             tamanho_desejado = 2
         elif tamanho_desejado == "33%":
             tamanho_desejado = 3
@@ -59,21 +65,22 @@ def criar_aba(tabview):
             status_label.configure(text=f"Processando {i} de {total} imagens...")
             status_label.update_idletasks()
             
+        limpar_campos()
         status_label.configure(text=f"Imagens redimensionadas com sucesso em: {diretorio_saida}")
         status_label.update_idletasks()
     
     ctk.CTkLabel(frame, text="Pasta com as imagens").pack(pady=10)
     entry_entrada = ctk.CTkEntry(frame, placeholder_text="Insira o diretório...", width=250)
     entry_entrada.pack()
-    ctk.CTkButton(frame, text="Escolher Pasta", command=escolher_pasta_entrada).pack(pady=10)
+    ctk.CTkButton(frame, text="Escolher Pasta", command=lambda: escolher_pasta(entry_entrada)).pack(pady=10)
 
     ctk.CTkLabel(frame, text="Pasta de saída").pack(pady=10)
     entry_saida = ctk.CTkEntry(frame, placeholder_text="Insira o diretório...", width=250)
     entry_saida.pack()
-    ctk.CTkButton(frame, text="Escolher Pasta", command=escolher_pasta_saida).pack(pady=10)
+    ctk.CTkButton(frame, text="Escolher Pasta", command=lambda: escolher_pasta(entry_saida)).pack(pady=10)
 
     ctk.CTkLabel(frame, text="Valor da redução").pack(pady=10)
-    opcoes = ["50%", "33%", "25%", "20%"]
+    opcoes = ["100%", "50%", "33%", "25%", "20%"]
     tamanho = ctk.CTkComboBox(frame, values=opcoes, state="readonly")
     tamanho.set("50%")
     tamanho.pack(pady=0)
