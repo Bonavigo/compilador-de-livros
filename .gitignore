@@ -4,3 +4,4 @@ dist/
 app.spec
 Compilador-de-Livros.spec
 modulos/__pycache__
+texts/
