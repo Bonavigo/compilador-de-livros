@@ -1,11 +1,12 @@
 import os
 import re
+from copy import deepcopy
 
 import customtkinter as ctk
 from tkinter import filedialog
 
 from PIL import Image, ImageSequence
-from PyPDF2 import PdfReader, PdfWriter
+from PyPDF2 import PdfReader, PdfWriter, Transformation
 
 try:
     import fitz
@@ -53,6 +54,14 @@ def criar_aba(tabview):
             label_saida.configure(text="Pasta de saída do PDF")
         else:
             label_saida.configure(text="Pasta de saída das imagens")
+        atualizar_opcao_lossless()
+
+    def atualizar_opcao_lossless():
+        if tipo_saida.get() == "PDF":
+            chk_lossless.configure(state="normal")
+        else:
+            chk_lossless.deselect()
+            chk_lossless.configure(state="disabled")
 
     def atualizar_opcao_corte(valor_selecionado=None):
         if opcao_corte.get() == "Personalizado":
@@ -69,8 +78,10 @@ def criar_aba(tabview):
         entry_percentual.delete(0, "end")
         entry_percentual.insert(0, "50")
         ordem_leitura.set("Esquerda para direita")
+        chk_lossless.deselect()
         atualizar_interface_entrada()
         atualizar_interface_saida()
+        atualizar_opcao_lossless()
         atualizar_opcao_corte()
 
     def salvar_imagem(imagem, caminho_saida):
@@ -222,6 +233,59 @@ def criar_aba(tabview):
                 except OSError:
                     pass
 
+    def normalizar_metadados(metadados_pdf):
+        if not metadados_pdf:
+            return {}
+
+        metadados_formatados = {}
+        for chave, valor in dict(metadados_pdf).items():
+            if valor is not None:
+                metadados_formatados[str(chave)] = str(valor)
+        return metadados_formatados
+
+    def cortar_pagina_pdf_lossless(pagina_original, modo_corte, percentual, ordem):
+        largura = float(pagina_original.mediabox.width)
+        altura = float(pagina_original.mediabox.height)
+
+        if modo_corte == "Centro exato":
+            ponto_corte = largura / 2
+        else:
+            ponto_corte = largura * (percentual / 100)
+
+        if ponto_corte <= 0 or ponto_corte >= largura:
+            raise ValueError("Ponto de corte inválido para a página atual.")
+
+        def preparar_pagina(copia_pagina, deslocamento_x, largura_saida):
+            if deslocamento_x:
+                copia_pagina.add_transformation(Transformation().translate(-deslocamento_x, 0))
+
+            copia_pagina.mediabox.lower_left = (0, 0)
+            copia_pagina.mediabox.upper_right = (largura_saida, altura)
+            copia_pagina.cropbox.lower_left = (0, 0)
+            copia_pagina.cropbox.upper_right = (largura_saida, altura)
+            return copia_pagina
+
+        pagina_esquerda = preparar_pagina(deepcopy(pagina_original), 0, ponto_corte)
+        pagina_direita = preparar_pagina(deepcopy(pagina_original), ponto_corte, largura - ponto_corte)
+
+        if ordem == "Esquerda para direita":
+            return [pagina_esquerda, pagina_direita]
+        return [pagina_direita, pagina_esquerda]
+
+    def escrever_pdf_lossless(reader, caminho_saida_final, metadados_pdf, modo_corte, percentual, ordem):
+        writer = PdfWriter()
+
+        for pagina_original in reader.pages:
+            for pagina_partida in cortar_pagina_pdf_lossless(pagina_original, modo_corte, percentual, ordem):
+                writer.add_page(pagina_partida)
+
+        metadados_formatados = normalizar_metadados(metadados_pdf)
+        if metadados_formatados:
+            writer.add_metadata(metadados_formatados)
+
+        with open(caminho_saida_final, "wb") as arquivo_saida:
+            writer.write(arquivo_saida)
+
     def separar_folhas():
         pasta_saida = entry_saida.get().strip()
         if not pasta_saida:
@@ -244,6 +308,7 @@ def criar_aba(tabview):
             return
 
         saida_em_pdf = tipo_saida.get() == "PDF"
+        usar_lossless = saida_em_pdf and chk_lossless.get() == 1
         paginas_processadas = []
         total_itens = len(itens_origem)
         total_paginas_esperadas = total_itens * 2
@@ -283,13 +348,22 @@ def criar_aba(tabview):
 
         try:
             if saida_em_pdf:
-                if not paginas_processadas:
-                    raise ValueError("Nenhuma página foi gerada para o PDF de saída.")
-
                 nome_saida_pdf = f"{nome_base_saida}_separado.pdf"
                 caminho_saida_pdf = os.path.join(pasta_saida, nome_saida_pdf)
-                escrever_pdf_com_metadados(paginas_processadas, caminho_saida_pdf, metadados_pdf)
-                status_final = f"Concluído. {len(paginas_processadas)} arquivos gerados em {pasta_saida}."
+                if usar_lossless and tipo_origem == "pdf":
+                    try:
+                        reader = PdfReader(entry_entrada.get().strip())
+                    except Exception as erro:
+                        raise RuntimeError(f"Erro ao reabrir o PDF de entrada para saída lossless: {erro}") from erro
+
+                    escrever_pdf_lossless(reader, caminho_saida_pdf, metadados_pdf, modo_corte, percentual, ordem)
+                    status_final = f"Concluído. {len(reader.pages) * 2} arquivos gerados em {pasta_saida}."
+                else:
+                    if not paginas_processadas:
+                        raise ValueError("Nenhuma página foi gerada para o PDF de saída.")
+
+                    escrever_pdf_com_metadados(paginas_processadas, caminho_saida_pdf, metadados_pdf)
+                    status_final = f"Concluído. {len(paginas_processadas)} arquivos gerados em {pasta_saida}."
             else:
                 status_final = f"Concluído. {numero_saida - 1} arquivos gerados em {pasta_saida}."
         except Exception as erro:
@@ -339,6 +413,13 @@ def criar_aba(tabview):
     tipo_saida.set("Imagens")
     tipo_saida.pack()
 
+    chk_lossless = ctk.CTkCheckBox(
+        frame,
+        text="Saída PDF sem recompressão (lossless)",
+        command=atualizar_opcao_lossless,
+    )
+    chk_lossless.pack(pady=5)
+
     ctk.CTkLabel(frame, text="Posição do corte").pack(pady=10)
     opcao_corte = ctk.CTkComboBox(
         frame,
@@ -371,4 +452,5 @@ def criar_aba(tabview):
 
     atualizar_interface_entrada()
     atualizar_interface_saida()
+    atualizar_opcao_lossless()
     atualizar_opcao_corte()
