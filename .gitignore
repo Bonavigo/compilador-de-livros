@@ -1,6 +1,9 @@
 fotos-como-usar/
 build/
 dist/
+texts/
+__pycache__/
+*.pyc
 app.spec
 Compilador-de-Livros.spec
 modulos/__pycache__
