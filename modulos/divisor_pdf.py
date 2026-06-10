@@ -1,5 +1,6 @@
 import io
 import os
+import threading
 
 import customtkinter as ctk
 from tkinter import filedialog
@@ -30,50 +31,50 @@ def criar_aba(tabview):
         entry_tamanho.delete(0, "end")
         entry_tamanho.insert(0, "10")
 
-    def pdf_para_bytes(pages):
-        writer = PdfWriter()
-        for page in pages:
-            writer.add_page(page)
+    def atualizar_status(texto):
+        status_label.after(0, lambda: status_label.configure(text=texto))
 
-        buffer = io.BytesIO()
-        writer.write(buffer)
-        return buffer.getvalue()
+    def salvar_writer(writer, caminho_saida, nome_base, indice_parte, digitos, metadados_pdf=None):
+        if metadados_pdf:
+            metadados_formatados = {}
+            for chave, valor in dict(metadados_pdf).items():
+                if valor is not None:
+                    metadados_formatados[str(chave)] = str(valor)
+            if metadados_formatados:
+                writer.add_metadata(metadados_formatados)
 
-    def salvar_parte(pages, caminho_saida, nome_base, indice_parte, digitos):
-        conteudo = pdf_para_bytes(pages)
+        buffer_saida = io.BytesIO()
+        writer.write(buffer_saida)
+        tamanho_bytes = buffer_saida.tell()
         nome_arquivo = f"{nome_base}_parte_{indice_parte:0{digitos}d}.pdf"
         caminho_arquivo = os.path.join(caminho_saida, nome_arquivo)
 
         with open(caminho_arquivo, "wb") as arquivo_saida:
-            arquivo_saida.write(conteudo)
+            arquivo_saida.write(buffer_saida.getvalue())
 
-        return caminho_arquivo
+        return caminho_arquivo, tamanho_bytes
 
-    def dividir_pdf():
+    def executar_divisao():
         caminho_pdf = entry_pdf.get().strip()
         diretorio_saida = entry_saida.get().strip()
         tamanho_mb = entry_tamanho.get().strip()
 
         if not caminho_pdf or not diretorio_saida:
-            status_label.configure(text="Faltam arquivo PDF ou pasta de saída.")
-            status_label.update_idletasks()
+            atualizar_status("Faltam arquivo PDF ou pasta de saída.")
             return
 
         if not os.path.isfile(caminho_pdf) or not caminho_pdf.lower().endswith(".pdf"):
-            status_label.configure(text="O arquivo selecionado precisa ser um PDF válido.")
-            status_label.update_idletasks()
+            atualizar_status("O arquivo selecionado precisa ser um PDF válido.")
             return
 
         try:
             limite_mb = float(tamanho_mb)
         except ValueError:
-            status_label.configure(text="Tamanho máximo inválido.")
-            status_label.update_idletasks()
+            atualizar_status("Tamanho máximo inválido.")
             return
 
         if limite_mb <= 0:
-            status_label.configure(text="O tamanho máximo precisa ser maior que zero.")
-            status_label.update_idletasks()
+            atualizar_status("O tamanho máximo precisa ser maior que zero.")
             return
 
         limite_bytes = int(limite_mb * 1024 * 1024)
@@ -81,49 +82,158 @@ def criar_aba(tabview):
         try:
             reader = PdfReader(caminho_pdf)
         except Exception as erro:
-            status_label.configure(text=f"Erro ao abrir o PDF: {erro}")
-            status_label.update_idletasks()
+            atualizar_status(f"Erro ao abrir o PDF: {erro}")
             return
 
-        os.makedirs(diretorio_saida, exist_ok=True)
+        try:
+            os.makedirs(diretorio_saida, exist_ok=True)
+        except Exception as erro:
+            atualizar_status(f"Erro ao criar a pasta de saída: {erro}")
+            return
 
         total_paginas = len(reader.pages)
-        digitos = 4 if total_paginas > 999 else 3
         nome_base = os.path.splitext(os.path.basename(caminho_pdf))[0]
 
-        paginas_atuais = []
+        if total_paginas == 0:
+            atualizar_status("O PDF de entrada não tem páginas.")
+            return
+
+        writer_atual = PdfWriter()
         partes_geradas = 0
+        partes_salvas = []
+        tamanho_ultimo_buffer = 0
+        metadados_pdf = reader.metadata
 
         try:
             for indice_pagina, pagina in enumerate(reader.pages, start=1):
-                status_label.configure(text=f"Processando página {indice_pagina} de {total_paginas}...")
-                status_label.update_idletasks()
+                atualizar_status(f"Processando página {indice_pagina} de {total_paginas}...")
 
-                paginas_atuais.append(pagina)
-                tamanho_atual = len(pdf_para_bytes(paginas_atuais))
+                escritor_teste = PdfWriter()
+                for pagina_existente in writer_atual.pages:
+                    escritor_teste.add_page(pagina_existente)
+                escritor_teste.add_page(pagina)
 
-                if tamanho_atual > limite_bytes:
-                    ultima_pagina = paginas_atuais.pop()
+                buffer_teste = io.BytesIO()
+                escritor_teste.write(buffer_teste)
+                tamanho_teste = buffer_teste.tell()
 
-                    if paginas_atuais:
+                if tamanho_teste <= limite_bytes:
+                    writer_atual = escritor_teste
+                    tamanho_ultimo_buffer = tamanho_teste
+                    continue
+
+                if len(writer_atual.pages) > 0:
+                    partes_geradas += 1
+                    digitos = max(3, len(str(total_paginas)))
+                    atualizar_status(
+                        f"Salvando parte {partes_geradas}... ({tamanho_ultimo_buffer / (1024 * 1024):.2f} MB)"
+                    )
+
+                    caminho_arquivo, tamanho_bytes = salvar_writer(
+                        writer_atual,
+                        diretorio_saida,
+                        nome_base,
+                        partes_geradas,
+                        digitos,
+                        metadados_pdf,
+                    )
+                    partes_salvas.append((caminho_arquivo, tamanho_bytes))
+
+                    writer_novo = PdfWriter()
+                    writer_novo.add_page(pagina)
+                    buffer_novo = io.BytesIO()
+                    writer_novo.write(buffer_novo)
+                    tamanho_novo = buffer_novo.tell()
+
+                    if tamanho_novo > limite_bytes:
                         partes_geradas += 1
-                        salvar_parte(paginas_atuais, diretorio_saida, nome_base, partes_geradas, digitos)
+                        digitos = max(3, len(str(total_paginas)))
+                        atualizar_status(
+                            f"Aviso: página {indice_pagina} excede o limite sozinha e será salva em arquivo próprio."
+                        )
+                        atualizar_status(
+                            f"Salvando parte {partes_geradas}... ({tamanho_novo / (1024 * 1024):.2f} MB)"
+                        )
 
-                    paginas_atuais = [ultima_pagina]
+                        caminho_arquivo, tamanho_bytes = salvar_writer(
+                            writer_atual,
+                            diretorio_saida,
+                            nome_base,
+                            partes_geradas,
+                            digitos,
+                            metadados_pdf,
+                        )
+                        partes_salvas.append((caminho_arquivo, tamanho_bytes))
+                        writer_atual = PdfWriter()
+                        tamanho_ultimo_buffer = 0
+                    else:
+                        writer_atual = writer_novo
+                        tamanho_ultimo_buffer = tamanho_novo
+                else:
+                    partes_geradas += 1
+                    digitos = max(3, len(str(total_paginas)))
+                    atualizar_status(
+                        f"Aviso: página {indice_pagina} excede o limite sozinha e será salva em arquivo próprio."
+                    )
+                    atualizar_status(
+                        f"Salvando parte {partes_geradas}... ({tamanho_teste / (1024 * 1024):.2f} MB)"
+                    )
 
-            if paginas_atuais:
-                partes_geradas += 1
-                salvar_parte(paginas_atuais, diretorio_saida, nome_base, partes_geradas, digitos)
-
-            limpar_campos()
-            status_label.configure(
-                text=f"Concluído. {partes_geradas} partes geradas em {diretorio_saida}."
-            )
-            status_label.update_idletasks()
+                    writer_sozinho = PdfWriter()
+                    writer_sozinho.add_page(pagina)
+                    caminho_arquivo, tamanho_bytes = salvar_writer(
+                        writer_sozinho,
+                        diretorio_saida,
+                        nome_base,
+                        partes_geradas,
+                        digitos,
+                        metadados_pdf,
+                    )
+                    partes_salvas.append((caminho_arquivo, tamanho_bytes))
+                    writer_atual = PdfWriter()
+                    tamanho_ultimo_buffer = 0
 
         except Exception as erro:
-            status_label.configure(text=f"Erro ao dividir o PDF: {erro}")
-            status_label.update_idletasks()
+            atualizar_status(f"Erro ao dividir o PDF: {erro}")
+            return
+
+        if len(writer_atual.pages) > 0:
+            partes_geradas += 1
+            digitos = max(3, len(str(total_paginas)))
+            try:
+                atualizar_status(
+                    f"Salvando parte {partes_geradas}... ({tamanho_ultimo_buffer / (1024 * 1024):.2f} MB)"
+                )
+                caminho_arquivo, tamanho_bytes = salvar_writer(
+                    writer_atual,
+                    diretorio_saida,
+                    nome_base,
+                    partes_geradas,
+                    digitos,
+                    metadados_pdf,
+                )
+                partes_salvas.append((caminho_arquivo, tamanho_bytes))
+            except Exception as erro:
+                atualizar_status(f"Erro ao salvar a última parte: {erro}")
+                return
+
+        if partes_salvas:
+            tamanhos_mb = [tamanho / (1024 * 1024) for _, tamanho in partes_salvas]
+            maior_parte = max(tamanhos_mb)
+            menor_parte = min(tamanhos_mb)
+            atualizar_status(
+                f"Concluído. {len(partes_salvas)} partes geradas em {diretorio_saida}. "
+                f"Maior parte: {maior_parte:.2f} MB. Menor parte: {menor_parte:.2f} MB."
+            )
+        else:
+            atualizar_status("Nenhuma parte foi gerada.")
+            return
+
+        status_label.after(0, limpar_campos)
+
+    def dividir_pdf():
+        thread = threading.Thread(target=executar_divisao, daemon=True)
+        thread.start()
 
     ctk.CTkLabel(frame, text="Arquivo PDF de entrada").pack(pady=10)
     entry_pdf = ctk.CTkEntry(frame, placeholder_text="Insira o arquivo PDF...", width=280)

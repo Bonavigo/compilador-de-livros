@@ -1,6 +1,6 @@
 import os, sys
 import customtkinter as ctk
-from modulos import compilador, redimensionador, renomeador
+from modulos import compilador, redimensionador, renomeador, divisor_pdf, separador_folhas, juntador_pdf
 
 # Configuração da aparência
 ctk.set_appearance_mode('dark')
@@ -35,10 +35,9 @@ tabview.pack(padx=10, pady=10, fill="both", expand=True)
 compilador.criar_aba(tabview)
 redimensionador.criar_aba(tabview)
 renomeador.criar_aba(tabview)
-from modulos import divisor_pdf
 divisor_pdf.criar_aba(tabview)
-from modulos import separador_folhas
 separador_folhas.criar_aba(tabview)
+juntador_pdf.criar_aba(tabview)
 
 # Inicia o loop da aplicação
 app.mainloop()
