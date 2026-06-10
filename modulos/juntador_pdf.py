@@ -9,7 +9,7 @@ from PyPDF2 import PdfReader, PdfWriter
 
 
 def criar_aba(tabview):
-    aba_juntador = tabview.add("Juntar PDFs")
+    aba_juntador = tabview.add("Juntador")
     frame = ctk.CTkScrollableFrame(aba_juntador, width=560, height=460)
     frame.pack(padx=5, pady=5, fill="both", expand=True)
 

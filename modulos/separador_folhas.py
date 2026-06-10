@@ -15,7 +15,7 @@ except ImportError:  # pragma: no cover - dependência opcional de renderizaçã
 
 
 def criar_aba(tabview):
-    aba_separador = tabview.add("Separador de Folhas")
+    aba_separador = tabview.add("Divisor")
     frame = ctk.CTkScrollableFrame(aba_separador, width=560, height=460)
     frame.pack(padx=5, pady=5, fill="both", expand=True)
 
@@ -397,12 +397,6 @@ def criar_aba(tabview):
     button_entrada = ctk.CTkButton(frame, text="Escolher Pasta", command=lambda: escolher_pasta(entry_entrada))
     button_entrada.pack(pady=10)
 
-    label_saida = ctk.CTkLabel(frame, text="Pasta de saída das imagens")
-    label_saida.pack(pady=10)
-    entry_saida = ctk.CTkEntry(frame, placeholder_text="Insira o diretório...", width=250)
-    entry_saida.pack()
-    ctk.CTkButton(frame, text="Escolher Pasta", command=lambda: escolher_pasta(entry_saida)).pack(pady=10)
-
     ctk.CTkLabel(frame, text="Formato de saída").pack(pady=10)
     tipo_saida = ctk.CTkComboBox(
         frame,
@@ -419,6 +413,12 @@ def criar_aba(tabview):
         command=atualizar_opcao_lossless,
     )
     chk_lossless.pack(pady=5)
+
+    label_saida = ctk.CTkLabel(frame, text="Pasta de saída das imagens")
+    label_saida.pack(pady=10)
+    entry_saida = ctk.CTkEntry(frame, placeholder_text="Insira o diretório...", width=250)
+    entry_saida.pack()
+    ctk.CTkButton(frame, text="Escolher Pasta", command=lambda: escolher_pasta(entry_saida)).pack(pady=10)
 
     ctk.CTkLabel(frame, text="Posição do corte").pack(pady=10)
     opcao_corte = ctk.CTkComboBox(
